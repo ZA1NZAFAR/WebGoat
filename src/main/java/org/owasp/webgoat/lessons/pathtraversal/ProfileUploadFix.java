@@ -3,6 +3,8 @@ package org.owasp.webgoat.lessons.pathtraversal;
 import static org.springframework.http.MediaType.ALL_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
 import org.owasp.webgoat.container.session.WebSession;
@@ -23,9 +25,12 @@ import org.springframework.web.multipart.MultipartFile;
 })
 public class ProfileUploadFix extends ProfileUploadBase {
 
+  private final Path rootLocation;
+
   public ProfileUploadFix(
       @Value("${webgoat.server.directory}") String webGoatHomeDirectory, WebSession webSession) {
     super(webGoatHomeDirectory, webSession);
+    this.rootLocation = Paths.get(webGoatHomeDirectory).toAbsolutePath().normalize();
   }
 
   @PostMapping(
@@ -36,7 +41,10 @@ public class ProfileUploadFix extends ProfileUploadBase {
   public AttackResult uploadFileHandler(
       @RequestParam("uploadedFileFix") MultipartFile file,
       @RequestParam(value = "fullNameFix", required = false) String fullName) {
-    return super.execute(file, fullName != null ? fullName.replace("../", "") : "");
+    // Generate a safe file name to avoid using user input directly
+    String safeFileName = java.util.UUID.randomUUID().toString();
+    // Use the safe file name for storage and any further processing
+    return super.execute(file, safeFileName);
   }
 
   @GetMapping("/PathTraversal/profile-picture-fix")

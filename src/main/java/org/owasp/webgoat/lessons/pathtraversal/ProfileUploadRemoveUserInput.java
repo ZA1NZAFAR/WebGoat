@@ -28,7 +28,8 @@ public class ProfileUploadRemoveUserInput extends ProfileUploadBase {
   public ProfileUploadRemoveUserInput(
       @Value("${webgoat.server.directory}") String webGoatHomeDirectory, WebSession webSession) {
     super(webGoatHomeDirectory, webSession);
-    this.rootLocation = Paths.get(webGoatHomeDirectory);
+    this.rootLocation = Paths.get(webGoatHomeDirectory).toAbsolutePath().normalize();
+    // Ensure the path is normalized and absolute to avoid any discrepancies.
   }
 
   @PostMapping(
@@ -45,7 +46,7 @@ public class ProfileUploadRemoveUserInput extends ProfileUploadBase {
           this.rootLocation.resolve(Paths.get(safeFileName)).normalize().toAbsolutePath();
 
       // Verify the file is not being saved outside of the intended directory
-      if (!destinationFile.getParent().equals(this.rootLocation.toAbsolutePath())) {
+      if (!destinationFile.startsWith(this.rootLocation)) {
         throw new SecurityException("Cannot store file outside the current directory.");
       }
 

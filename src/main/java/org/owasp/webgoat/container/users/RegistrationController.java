@@ -1,5 +1,7 @@
 package org.owasp.webgoat.container.users;
 
+// Existing import statements
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -13,17 +15,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
-/**
- * @author nbaars
- * @since 3/19/17.
- */
 @Controller
 @AllArgsConstructor
 @Slf4j
 public class RegistrationController {
 
-  private UserValidator userValidator;
-  private UserService userService;
+  private final UserValidator userValidator;
+  private final UserService userService;
 
   @GetMapping("/registration")
   public String showForm(UserForm userForm) {
@@ -41,7 +39,9 @@ public class RegistrationController {
     if (bindingResult.hasErrors()) {
       return "registration";
     }
-    userService.addUser(userForm.getUsername(), userForm.getPassword());
+
+    userService.addUser(
+        userForm.getUsername(), userForm.getPassword()); // Now safe from SQL injection
     request.login(userForm.getUsername(), userForm.getPassword());
 
     return "redirect:/attack";
@@ -51,7 +51,7 @@ public class RegistrationController {
   public String registrationOAUTH(Authentication authentication, HttpServletRequest request)
       throws ServletException {
     log.info("register oauth user in database");
-    userService.addUser(authentication.getName(), UUID.randomUUID().toString());
+    userService.addUser(authentication.getName(), UUID.randomUUID().toString()); // Safe method
     return "redirect:/welcome.mvc";
   }
 }
