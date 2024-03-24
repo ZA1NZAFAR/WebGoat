@@ -25,8 +25,10 @@ package org.owasp.webgoat.lessons.sqlinjection.introduction;
 import static org.hsqldb.jdbc.JDBCResultSet.CONCUR_UPDATABLE;
 import static org.hsqldb.jdbc.JDBCResultSet.TYPE_SCROLL_SENSITIVE;
 
-import java.sql.*;
-
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import org.owasp.webgoat.container.LessonDataSource;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -59,41 +61,44 @@ public class SqlInjectionLesson9 extends AssignmentEndpoint {
     return injectableQueryIntegrity(name, auth_tan);
   }
 
-    protected AttackResult injectableQueryIntegrity(String name, String auth_tan) {
-        StringBuilder output = new StringBuilder();
-        String query = "SELECT * FROM employees WHERE last_name = ? AND auth_tan = ?";
-        try (Connection connection = dataSource.getConnection()) {
-            try {
-                PreparedStatement preparedStatement = connection.prepareStatement(query, TYPE_SCROLL_SENSITIVE, CONCUR_UPDATABLE);
-                preparedStatement.setString(1, name);
-                preparedStatement.setString(2, auth_tan);
-                SqlInjectionLesson8.log(connection, query);
-                ResultSet results = preparedStatement.executeQuery();
-                var test = results.getRow() != 0;
-                if (results.getStatement() != null) {
-                    if (results.first()) {
-                        output.append(SqlInjectionLesson8.generateTable(results));
-                    } else {
-                        // no results
-                        return failed(this).feedback("sql-injection.8.no.results").build();
-                    }
-                }
-            } catch (SQLException e) {
-                System.err.println(e.getMessage());
-                return failed(this)
-                        .output("<br><span class='feedback-negative'>" + e.getMessage() + "</span>")
-                        .build();
-            }
-
-            return checkSalaryRanking(connection, output);
-
-        } catch (Exception e) {
-            System.err.println(e.getMessage());
-            return failed(this)
-                    .output("<br><span class='feedback-negative'>" + e.getMessage() + "</span>")
-                    .build();
+  protected AttackResult injectableQueryIntegrity(String name, String auth_tan) {
+    StringBuilder output = new StringBuilder();
+    String query =
+        "SELECT * FROM employees WHERE last_name = '"
+            + name
+            + "' AND auth_tan = '"
+            + auth_tan
+            + "'";
+    try (Connection connection = dataSource.getConnection()) {
+      try {
+        Statement statement = connection.createStatement(TYPE_SCROLL_SENSITIVE, CONCUR_UPDATABLE);
+        SqlInjectionLesson8.log(connection, query);
+        ResultSet results = statement.executeQuery(query);
+        var test = results.getRow() != 0;
+        if (results.getStatement() != null) {
+          if (results.first()) {
+            output.append(SqlInjectionLesson8.generateTable(results));
+          } else {
+            // no results
+            return failed(this).feedback("sql-injection.8.no.results").build();
+          }
         }
+      } catch (SQLException e) {
+        System.err.println(e.getMessage());
+        return failed(this)
+            .output("<br><span class='feedback-negative'>" + e.getMessage() + "</span>")
+            .build();
+      }
+
+      return checkSalaryRanking(connection, output);
+
+    } catch (Exception e) {
+      System.err.println(e.getMessage());
+      return failed(this)
+          .output("<br><span class='feedback-negative'>" + e.getMessage() + "</span>")
+          .build();
     }
+  }
 
   private AttackResult checkSalaryRanking(Connection connection, StringBuilder output) {
     try {
