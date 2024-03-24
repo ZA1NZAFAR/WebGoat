@@ -6,8 +6,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +20,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.token.Sha512DigestUtils;
 import org.springframework.util.FileCopyUtils;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -44,7 +41,8 @@ public class ProfileUploadRetrieval extends AssignmentEndpoint {
   private final File catPicturesDirectory;
 
   public ProfileUploadRetrieval(@Value("${webgoat.server.directory}") String webGoatHomeDirectory) {
-    this.catPicturesDirectory = new File(webGoatHomeDirectory, "/PathTraversal/" + "/cats");
+    this.catPicturesDirectory =
+        new File(webGoatHomeDirectory, "PathTraversal/cats").getAbsoluteFile();
     this.catPicturesDirectory.mkdirs();
   }
 
@@ -56,13 +54,13 @@ public class ProfileUploadRetrieval extends AssignmentEndpoint {
               .getInputStream()) {
         FileCopyUtils.copy(is, new FileOutputStream(new File(catPicturesDirectory, i + ".jpg")));
       } catch (Exception e) {
-        log.error("Unable to copy pictures" + e.getMessage());
+        log.error("Unable to copy pictures: {}", e.getMessage(), e);
       }
     }
-    var secretDirectory = this.catPicturesDirectory.getParentFile().getParentFile();
+    var secretDirectory = this.catPicturesDirectory.getParentFile();
     try {
       Files.writeString(
-          secretDirectory.toPath().resolve("path-traversal-secret.jpg"),
+          secretDirectory.toPath().resolve("path-traversal-secret.txt"),
           "You found it submit the SHA-512 hash of your username as answer");
     } catch (IOException e) {
       log.error("Unable to write secret in: {}", secretDirectory, e);
@@ -81,34 +79,27 @@ public class ProfileUploadRetrieval extends AssignmentEndpoint {
   @GetMapping("/PathTraversal/random-picture")
   @ResponseBody
   public ResponseEntity<?> getProfilePicture(HttpServletRequest request) {
-    var queryParams = request.getQueryString();
-    if (queryParams != null && (queryParams.contains("..") || queryParams.contains("/"))) {
-      return ResponseEntity.badRequest()
-          .body("Illegal characters are not allowed in the query params");
-    }
     try {
       var id = request.getParameter("id");
-      var catPicture =
-          new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");
-
-      if (catPicture.getName().toLowerCase().contains("path-traversal-secret.jpg")) {
-        return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(MediaType.IMAGE_JPEG_VALUE))
-            .body(FileCopyUtils.copyToByteArray(catPicture));
+      if (id == null) {
+        id = String.valueOf(RandomUtils.nextInt(1, 11));
       }
+      var catPicturePath = this.catPicturesDirectory.toPath().resolve(id + ".jpg").normalize();
+
+      if (!catPicturePath.startsWith(this.catPicturesDirectory.toPath())) {
+        return ResponseEntity.badRequest().body("Access denied");
+      }
+
+      var catPicture = catPicturePath.toFile();
+
       if (catPicture.exists()) {
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(MediaType.IMAGE_JPEG_VALUE))
-            .location(new URI("/PathTraversal/random-picture?id=" + catPicture.getName()))
             .body(Base64.getEncoder().encode(FileCopyUtils.copyToByteArray(catPicture)));
       }
-      return ResponseEntity.status(HttpStatus.NOT_FOUND)
-          .location(new URI("/PathTraversal/random-picture?id=" + catPicture.getName()))
-          .body(
-              StringUtils.arrayToCommaDelimitedString(catPicture.getParentFile().listFiles())
-                  .getBytes());
-    } catch (IOException | URISyntaxException e) {
-      log.error("Image not found", e);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Image not found");
+    } catch (IOException e) {
+      log.error("Image processing error", e);
     }
 
     return ResponseEntity.badRequest().build();
