@@ -30,15 +30,19 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.impl.TextCodec;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import org.apache.commons.lang3.StringUtils;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -68,7 +72,21 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTVotesEndpoint extends AssignmentEndpoint {
 
-  public static final String JWT_PASSWORD = TextCodec.BASE64.encode("victory");
+  public static String JWT_PASSWORD;
+
+  static {
+    KeyGenerator keyGen = null;
+    try {
+      keyGen = KeyGenerator.getInstance("HmacSHA512");
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
+    SecureRandom random = new SecureRandom(); // Cryptographically strong random number generator
+    keyGen.init(256, random); // Specify the key size
+    SecretKey secretKey = keyGen.generateKey();
+    JWT_PASSWORD = Base64.getEncoder().encodeToString(secretKey.getEncoded());
+  }
+
   private static String validUsers = "TomJerrySylvester";
 
   private static int totalVotes = 38929;
