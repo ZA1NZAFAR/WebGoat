@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -65,33 +66,32 @@ public class ProfileZipSlip extends ProfileUploadBase {
     cleanupAndCreateDirectoryForUser();
     byte[] currentImage = getProfilePictureAsBase64();
 
-    Path uploadedZipFile = tmpZipDirectory.resolve(file.getOriginalFilename());
+    // Generate a new filename for the uploaded ZIP to avoid using user input
+    String safeFilename = UUID.randomUUID().toString() + ".zip";
+    Path uploadedZipFile = tmpZipDirectory.resolve(safeFilename);
     FileCopyUtils.copy(file.getBytes(), uploadedZipFile.toFile());
 
     try (ZipFile zip = new ZipFile(uploadedZipFile.toFile())) {
       Enumeration<? extends ZipEntry> entries = zip.entries();
       while (entries.hasMoreElements()) {
         ZipEntry e = entries.nextElement();
-        Path outputPath = tmpZipDirectory.resolve(e.getName());
-        // Check for path traversal vulnerability
-        if (!outputPath.normalize().startsWith(tmpZipDirectory)) {
+        Path resolvedPath = tmpZipDirectory.resolve(e.getName()).normalize();
+
+        // Verify the resolved path is still within the temporary directory
+        if (!resolvedPath.startsWith(tmpZipDirectory)) {
           throw new IOException("Invalid zip entry detected: " + e.getName());
         }
         if (e.isDirectory()) {
-          Files.createDirectories(outputPath);
+          Files.createDirectories(resolvedPath);
         } else {
-          File parent = outputPath.toFile().getParentFile();
+          File parent = resolvedPath.toFile().getParentFile();
           if (parent != null) {
-            // Ensure the parent directory is within the expected path
-            if (!parent.toPath().normalize().startsWith(tmpZipDirectory)) {
-              throw new IOException("Invalid parent directory: " + parent);
-            }
             if (!parent.exists()) {
               parent.mkdirs();
             }
           }
           try (InputStream is = zip.getInputStream(e)) {
-            Files.copy(is, outputPath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(is, resolvedPath, StandardCopyOption.REPLACE_EXISTING);
           }
         }
       }
