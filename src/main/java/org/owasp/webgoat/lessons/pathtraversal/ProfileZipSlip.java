@@ -60,47 +60,58 @@ public class ProfileZipSlip extends ProfileUploadBase {
     return processZipUpload(file);
   }
 
-  private AttackResult processZipUpload(MultipartFile file) throws IOException {
-    // Use a secure method to create a temporary directory
-    Path tmpZipDirectory = Files.createTempDirectory("webgoat");
-    cleanupAndCreateDirectoryForUser();
-    byte[] currentImage = getProfilePictureAsBase64();
+    private AttackResult processZipUpload(MultipartFile file) throws IOException {
+        Path tmpZipDirectory = Files.createTempDirectory("webgoat");
+        cleanupAndCreateDirectoryForUser();
+        byte[] currentImage = getProfilePictureAsBase64();
 
-    // Generate a new filename for the uploaded ZIP to avoid using user input
-    String safeFilename = UUID.randomUUID().toString() + ".zip";
-    Path uploadedZipFile = tmpZipDirectory.resolve(safeFilename);
-    FileCopyUtils.copy(file.getBytes(), uploadedZipFile.toFile());
+        String safeFilename = UUID.randomUUID().toString() + ".zip";
+        Path uploadedZipFile = tmpZipDirectory.resolve(safeFilename);
+        FileCopyUtils.copy(file.getBytes(), uploadedZipFile.toFile());
 
-    try (ZipFile zip = new ZipFile(uploadedZipFile.toFile())) {
-      Enumeration<? extends ZipEntry> entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry e = entries.nextElement();
-        Path resolvedPath = tmpZipDirectory.resolve(e.getName()).normalize();
+        try (ZipFile zip = new ZipFile(uploadedZipFile.toFile())) {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String entryName = sanitizeFileName(entry.getName(), tmpZipDirectory);
 
-        // Verify the resolved path is still within the temporary directory
-        if (!resolvedPath.startsWith(tmpZipDirectory)) {
-          throw new IOException("Invalid zip entry detected: " + e.getName());
-        }
-        if (e.isDirectory()) {
-          Files.createDirectories(resolvedPath);
-        } else {
-          File parent = resolvedPath.toFile().getParentFile();
-          if (parent != null) {
-            if (!parent.exists()) {
-              parent.mkdirs();
+                Path resolvedPath = tmpZipDirectory.resolve(entryName).normalize();
+
+                // Verify the resolved path is still within the temporary directory
+                if (!resolvedPath.startsWith(tmpZipDirectory)) {
+                    throw new IOException("Invalid zip entry detected: " + entry.getName());
+                }
+                if (entry.isDirectory()) {
+                    Files.createDirectories(resolvedPath);
+                } else {
+                    File parent = resolvedPath.toFile().getParentFile();
+                    if (parent != null && !parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    try (InputStream is = zip.getInputStream(entry)) {
+                        Files.copy(is, resolvedPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
             }
-          }
-          try (InputStream is = zip.getInputStream(e)) {
-            Files.copy(is, resolvedPath, StandardCopyOption.REPLACE_EXISTING);
-          }
+        } catch (IOException e) {
+            return failed(this).output(e.getMessage()).build();
         }
-      }
-    } catch (IOException e) {
-      return failed(this).output(e.getMessage()).build();
+
+        return isSolved(currentImage, getProfilePictureAsBase64());
     }
 
-    return isSolved(currentImage, getProfilePictureAsBase64());
-  }
+    private String sanitizeFileName(String fileName, Path destination) {
+        fileName = fileName.replace("..", "").replace("\\", "/");
+
+        // Optional: Add more sanitization logic here
+
+        // Prevent directory traversal (sanity check)
+        Path resolvedPath = destination.resolve(fileName).normalize();
+        if (!resolvedPath.startsWith(destination)) {
+            throw new SecurityException("Invalid file path: " + fileName);
+        }
+        return resolvedPath.getFileName().toString(); // Return only the sanitized file name part
+    }
 
   private AttackResult isSolved(byte[] currentImage, byte[] newImage) {
     if (Arrays.equals(currentImage, newImage)) {

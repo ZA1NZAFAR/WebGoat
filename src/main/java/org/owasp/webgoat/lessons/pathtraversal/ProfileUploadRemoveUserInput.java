@@ -17,46 +17,46 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @AssignmentHints({
-  "path-traversal-profile-remove-user-input.hint1",
-  "path-traversal-profile-remove-user-input.hint2",
-  "path-traversal-profile-remove-user-input.hint3"
+        "path-traversal-profile-remove-user-input.hint1",
+        "path-traversal-profile-remove-user-input.hint2",
+        "path-traversal-profile-remove-user-input.hint3"
 })
 public class ProfileUploadRemoveUserInput extends ProfileUploadBase {
 
-  private final Path rootLocation;
+    private final Path rootLocation;
 
-  public ProfileUploadRemoveUserInput(
-      @Value("${webgoat.server.directory}") String webGoatHomeDirectory, WebSession webSession) {
-    super(webGoatHomeDirectory, webSession);
-    this.rootLocation = Paths.get(webGoatHomeDirectory).toAbsolutePath().normalize();
-    // Ensure the path is normalized and absolute to avoid any discrepancies.
-  }
-
-  @PostMapping(
-      value = "/PathTraversal/profile-upload-remove-user-input",
-      consumes = ALL_VALUE,
-      produces = APPLICATION_JSON_VALUE)
-  @ResponseBody
-  public AttackResult uploadFileHandler(
-      @RequestParam("uploadedFileRemoveUserInput") MultipartFile file) {
-    try {
-      // Sanitize the file name and generate a new one to prevent path traversal
-      String safeFileName = java.util.UUID.randomUUID().toString(); // Generating a safe file name
-      Path destinationFile =
-          this.rootLocation.resolve(Paths.get(safeFileName)).normalize().toAbsolutePath();
-
-      // Verify the file is not being saved outside of the intended directory
-      if (!destinationFile.startsWith(this.rootLocation)) {
-        throw new SecurityException("Cannot store file outside the current directory.");
-      }
-
-      // Save the file
-      file.transferTo(destinationFile);
-
-      // Process the file as needed
-      return super.execute(file, safeFileName);
-    } catch (Exception e) {
-      throw new RuntimeException("Could not store the file. Error: " + e.getMessage());
+    public ProfileUploadRemoveUserInput(
+            @Value("${webgoat.server.directory}") String webGoatHomeDirectory, WebSession webSession) {
+        super(webGoatHomeDirectory, webSession);
+        this.rootLocation = Paths.get(webGoatHomeDirectory).toAbsolutePath().normalize();
+        // Ensure the path is normalized and absolute to avoid any discrepancies.
     }
-  }
+
+    @PostMapping(
+            value = "/PathTraversal/profile-upload-remove-user-input",
+            consumes = ALL_VALUE,
+            produces = APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public AttackResult uploadFileHandler(
+            @RequestParam("uploadedFileRemoveUserInput") MultipartFile file) {
+        try {
+            // Sanitize the file name and generate a new one to prevent path traversal
+            String safeFileName = java.util.UUID.randomUUID().toString(); // Generating a safe file name
+            Path destinationFile =
+                    this.rootLocation.resolve(safeFileName).normalize().toAbsolutePath();
+
+            // Verify the file is not being saved outside of the intended directory
+            if (!destinationFile.startsWith(this.rootLocation)) {
+                throw new SecurityException("Cannot store file outside the current directory.");
+            }
+
+            // Save the file using a secure method that prevents directory traversal
+            file.transferTo(destinationFile);
+
+            // Process the file as needed
+            return super.execute(file, safeFileName);
+        } catch (Exception e) {
+            throw new RuntimeException("Could not store the file. Error: " + e.getMessage());
+        }
+    }
 }
