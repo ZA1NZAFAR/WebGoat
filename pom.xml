@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.2.4</version>
+    <version>3.1.5</version>
   </parent>
 
   <groupId>org.owasp.webgoat</groupId>
@@ -123,7 +123,7 @@
     <java.version>17</java.version>
     <jaxb.version>2.3.1</jaxb.version>
     <jjwt.version>0.9.1</jjwt.version>
-    <jose4j.version>0.9.6</jose4j.version>
+    <jose4j.version>0.9.3</jose4j.version>
     <jquery.version>3.7.0</jquery.version>
     <jsoup.version>1.17.2</jsoup.version>
     <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
@@ -138,7 +138,7 @@
     <!-- Use UTF-8 Encoding -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <thymeleaf.version>3.1.2.RELEASE</thymeleaf.version>
+    <thymeleaf.version>3.1.1.RELEASE</thymeleaf.version>
     <webdriver.version>5.6.3</webdriver.version>
     <webgoat.context>/</webgoat.context>
     <webgoat.sslenabled>false</webgoat.sslenabled>
@@ -146,7 +146,7 @@
     <webwolf.context>/</webwolf.context>
     <wiremock.version>2.27.2</wiremock.version>
     <xml-resolver.version>1.2</xml-resolver.version>
-    <xstream.version>1.4.20</xstream.version>
+    <xstream.version>1.4.5</xstream.version>
     <!-- do not update necessary for lesson -->
     <zxcvbn.version>1.8.0</zxcvbn.version>
   </properties>
