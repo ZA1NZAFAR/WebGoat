@@ -22,8 +22,10 @@
 
 package org.owasp.webgoat.lessons.sqlinjection.introduction;
 
-import java.sql.*;
-
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import org.owasp.webgoat.container.LessonDataSource;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
@@ -57,53 +59,54 @@ public class SqlInjectionLesson10 extends AssignmentEndpoint {
     return injectableQueryAvailability(action_string);
   }
 
- protected AttackResult injectableQueryAvailability(String action) {
-        StringBuilder output = new StringBuilder();
-        String query = "SELECT * FROM access_log WHERE action LIKE ?";
+  protected AttackResult injectableQueryAvailability(String action) {
+    StringBuilder output = new StringBuilder();
+    String query = "SELECT * FROM access_log WHERE action LIKE '%" + action + "%'";
 
-        try (Connection connection = dataSource.getConnection()) {
-            try {
-                PreparedStatement preparedStatement = connection.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                preparedStatement.setString(1, "%" + action + "%");
-                ResultSet results = preparedStatement.executeQuery();
+    try (Connection connection = dataSource.getConnection()) {
+      try {
+        Statement statement =
+            connection.createStatement(
+                ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet results = statement.executeQuery(query);
 
-                if (results.getStatement() != null) {
-                    results.first();
-                    output.append(SqlInjectionLesson8.generateTable(results));
-                    return failed(this)
-                            .feedback("sql-injection.10.entries")
-                            .output(output.toString())
-                            .build();
-                } else {
-                    if (tableExists(connection)) {
-                        return failed(this)
-                                .feedback("sql-injection.10.entries")
-                                .output(output.toString())
-                                .build();
-                    } else {
-                        return success(this).feedback("sql-injection.10.success").build();
-                    }
-                }
-            } catch (SQLException e) {
-                if (tableExists(connection)) {
-                    return failed(this)
-                            .output(
-                                    "<span class='feedback-negative'>"
-                                            + e.getMessage()
-                                            + "</span><br>"
-                                            + output.toString())
-                            .build();
-                } else {
-                    return success(this).feedback("sql-injection.10.success").build();
-                }
-            }
-
-        } catch (Exception e) {
+        if (results.getStatement() != null) {
+          results.first();
+          output.append(SqlInjectionLesson8.generateTable(results));
+          return failed(this)
+              .feedback("sql-injection.10.entries")
+              .output(output.toString())
+              .build();
+        } else {
+          if (tableExists(connection)) {
             return failed(this)
-                    .output("<span class='feedback-negative'>" + e.getMessage() + "</span>")
-                    .build();
+                .feedback("sql-injection.10.entries")
+                .output(output.toString())
+                .build();
+          } else {
+            return success(this).feedback("sql-injection.10.success").build();
+          }
         }
+      } catch (SQLException e) {
+        if (tableExists(connection)) {
+          return failed(this)
+              .output(
+                  "<span class='feedback-negative'>"
+                      + e.getMessage()
+                      + "</span><br>"
+                      + output.toString())
+              .build();
+        } else {
+          return success(this).feedback("sql-injection.10.success").build();
+        }
+      }
+
+    } catch (Exception e) {
+      return failed(this)
+          .output("<span class='feedback-negative'>" + e.getMessage() + "</span>")
+          .build();
     }
+  }
 
   private boolean tableExists(Connection connection) {
     try {
