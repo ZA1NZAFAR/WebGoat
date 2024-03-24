@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -58,21 +59,37 @@ public class ProfileZipSlip extends ProfileUploadBase {
 
   @SneakyThrows
   private AttackResult processZipUpload(MultipartFile file) {
-    var tmpZipDirectory = Files.createTempDirectory(getWebSession().getUserName());
+    Path tmpZipDirectory = Files.createTempDirectory(getWebSession().getUserName());
     cleanupAndCreateDirectoryForUser();
-    var currentImage = getProfilePictureAsBase64();
+    byte[] currentImage = getProfilePictureAsBase64();
 
     try {
-      var uploadedZipFile = tmpZipDirectory.resolve(file.getOriginalFilename());
+      Path uploadedZipFile = tmpZipDirectory.resolve(file.getOriginalFilename());
       FileCopyUtils.copy(file.getBytes(), uploadedZipFile.toFile());
 
-      ZipFile zip = new ZipFile(uploadedZipFile.toFile());
-      Enumeration<? extends ZipEntry> entries = zip.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry e = entries.nextElement();
-        File f = new File(tmpZipDirectory.toFile(), e.getName());
-        InputStream is = zip.getInputStream(e);
-        Files.copy(is, f.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      try (ZipFile zip = new ZipFile(uploadedZipFile.toFile())) {
+        Enumeration<? extends ZipEntry> entries = zip.entries();
+        while (entries.hasMoreElements()) {
+          ZipEntry e = entries.nextElement();
+          Path outputPath = tmpZipDirectory.resolve(e.getName());
+          // Check for path traversal vulnerability
+          if (!outputPath.startsWith(tmpZipDirectory)) {
+            throw new IOException("Invalid zip entry detected: " + e.getName());
+          }
+          if (e.isDirectory()) {
+            Files.createDirectories(outputPath);
+          } else {
+            File parent = outputPath.toFile().getParentFile();
+            if (parent != null) {
+              if (!parent.exists()) {
+                parent.mkdirs();
+              }
+            }
+            try (InputStream is = zip.getInputStream(e)) {
+              Files.copy(is, outputPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+          }
+        }
       }
 
       return isSolved(currentImage, getProfilePictureAsBase64());
