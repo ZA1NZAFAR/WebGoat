@@ -1,25 +1,3 @@
-/*
- * This file is part of WebGoat, an Open Web Application Security Project utility. For details, please see http://www.owasp.org/
- *
- * Copyright (c) 2002 - 2019 Bruce Mayhew
- *
- * This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
- * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with this program; if
- * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * Getting Source ==============
- *
- * Source for this application is maintained at https://github.com/WebGoat/WebGoat, a repository for free software projects.
- */
-
 package org.owasp.webgoat.lessons.sqlinjection.advanced;
 
 import java.sql.*;
@@ -55,37 +33,30 @@ public class SqlInjectionLesson6a extends AssignmentEndpoint {
   @ResponseBody
   public AttackResult completed(@RequestParam(value = "userid_6a") String userId) {
     return injectableQuery(userId);
-    // The answer: Smith' union select userid,user_name, password,cookie,cookie, cookie,userid from
-    // user_system_data --
   }
 
   public AttackResult injectableQuery(String accountName) {
-    String query = "";
+    String query = "SELECT * FROM user_data WHERE last_name = ?";
     try (Connection connection = dataSource.getConnection()) {
-      boolean usedUnion = true;
-      query = "SELECT * FROM user_data WHERE last_name = '" + accountName + "'";
-      // Check if Union is used
-      if (!accountName.matches("(?i)(^[^-/*;)]*)(\\s*)UNION(.*$)")) {
-        usedUnion = false;
-      }
-      try (Statement statement =
-          connection.createStatement(
-              ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
-        ResultSet results = statement.executeQuery(query);
+      boolean usedUnion = accountName.toLowerCase().contains("union");
+      try (PreparedStatement preparedStatement =
+          connection.prepareStatement(
+              query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)) {
+        preparedStatement.setString(1, accountName);
+        ResultSet results = preparedStatement.executeQuery();
 
-        if ((results != null) && results.first()) {
+        if (results.first()) {
           ResultSetMetaData resultsMetaData = results.getMetaData();
           StringBuilder output = new StringBuilder();
 
           output.append(SqlInjectionLesson5a.writeTable(results, resultsMetaData));
 
-          String appendingWhenSucceded;
-          if (usedUnion)
-            appendingWhenSucceded =
-                "Well done! Can you also figure out a solution, by appending a new SQL Statement?";
-          else
-            appendingWhenSucceded =
-                "Well done! Can you also figure out a solution, by using a UNION?";
+          String appendingWhenSucceded =
+              usedUnion
+                  ? "Well done! Can you also figure out a solution, by appending a new SQL"
+                      + " Statement?"
+                  : "Well done! Can you also figure out a solution, by using a UNION?";
+
           results.last();
 
           if (output.toString().contains("dave") && output.toString().contains("passW0rD")) {
@@ -93,15 +64,17 @@ public class SqlInjectionLesson6a extends AssignmentEndpoint {
             return success(this)
                 .feedback("sql-injection.advanced.6a.success")
                 .feedbackArgs(output.toString())
-                .output(" Your query was: " + query)
+                .output(YOUR_QUERY_WAS + query)
                 .build();
           } else {
-            return failed(this).output(output.toString() + YOUR_QUERY_WAS + query).build();
+            return failed(this)
+                .output(output.toString() + YOUR_QUERY_WAS + preparedStatement.toString())
+                .build();
           }
         } else {
           return failed(this)
               .feedback("sql-injection.advanced.6a.no.results")
-              .output(YOUR_QUERY_WAS + query)
+              .output(YOUR_QUERY_WAS + preparedStatement.toString())
               .build();
         }
       } catch (SQLException sqle) {

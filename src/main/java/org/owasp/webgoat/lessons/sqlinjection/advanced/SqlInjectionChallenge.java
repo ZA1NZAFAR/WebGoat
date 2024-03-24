@@ -1,25 +1,3 @@
-/*
- * This file is part of WebGoat, an Open Web Application Security Project utility. For details, please see http://www.owasp.org/
- *
- * Copyright (c) 2002 - 2019 Bruce Mayhew
- *
- * This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
- * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with this program; if
- * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * Getting Source ==============
- *
- * Source for this application is maintained at https://github.com/WebGoat/WebGoat, a repository for free software projects.
- */
-
 package org.owasp.webgoat.lessons.sqlinjection.advanced;
 
 import java.sql.*;
@@ -34,10 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * @author nbaars
- * @since 4/8/17.
- */
 @RestController
 @AssignmentHints(
     value = {"SqlInjectionChallenge1", "SqlInjectionChallenge2", "SqlInjectionChallenge3"})
@@ -51,7 +25,6 @@ public class SqlInjectionChallenge extends AssignmentEndpoint {
   }
 
   @PutMapping("/SqlInjectionAdvanced/challenge")
-  // assignment path is bounded to class so we use different http method :-)
   @ResponseBody
   public AttackResult registerNewUser(
       @RequestParam String username_reg,
@@ -61,12 +34,12 @@ public class SqlInjectionChallenge extends AssignmentEndpoint {
     AttackResult attackResult = checkArguments(username_reg, email_reg, password_reg);
 
     if (attackResult == null) {
-
       try (Connection connection = dataSource.getConnection()) {
-        String checkUserQuery =
-            "select userid from sql_challenge_users where userid = '" + username_reg + "'";
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(checkUserQuery);
+        // Fixed to use a PreparedStatement to prevent SQL injection
+        String checkUserQuery = "SELECT userid FROM sql_challenge_users WHERE userid = ?";
+        PreparedStatement checkUserStmt = connection.prepareStatement(checkUserQuery);
+        checkUserStmt.setString(1, username_reg);
+        ResultSet resultSet = checkUserStmt.executeQuery();
 
         if (resultSet.next()) {
           if (username_reg.contains("tom'")) {
