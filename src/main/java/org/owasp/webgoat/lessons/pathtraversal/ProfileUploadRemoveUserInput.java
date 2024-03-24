@@ -40,7 +40,6 @@ public class ProfileUploadRemoveUserInput extends ProfileUploadBase {
       @RequestParam("uploadedFileRemoveUserInput") MultipartFile file) {
     try {
       // Sanitize the file name and generate a new one to prevent path traversal
-      String originalFileName = file.getOriginalFilename();
       String safeFileName = java.util.UUID.randomUUID().toString(); // Generating a safe file name
       Path destinationFile =
           this.rootLocation.resolve(Paths.get(safeFileName)).normalize().toAbsolutePath();

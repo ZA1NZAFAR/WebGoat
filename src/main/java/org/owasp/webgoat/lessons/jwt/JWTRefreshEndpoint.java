@@ -24,12 +24,7 @@ package org.owasp.webgoat.lessons.jwt;
 
 import static org.springframework.http.ResponseEntity.ok;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Header;
-import io.jsonwebtoken.Jwt;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -140,8 +135,8 @@ public class JWTRefreshEndpoint extends AssignmentEndpoint {
     String user;
     String refreshToken;
     try {
-      Jwt<Header, Claims> jwt =
-          Jwts.parser().setSigningKey(JWT_PASSWORD).parseClaimsJwt(token.replace("Bearer ", ""));
+      Jws<Claims> jwt =
+          Jwts.parser().setSigningKey(JWT_PASSWORD).parseClaimsJws(token.replace("Bearer ", ""));
       user = (String) jwt.getBody().get("user");
       refreshToken = (String) json.get("refresh_token");
     } catch (ExpiredJwtException e) {

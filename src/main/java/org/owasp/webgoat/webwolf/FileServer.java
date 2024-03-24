@@ -1,25 +1,3 @@
-/*
- * This file is part of WebGoat, an Open Web Application Security Project utility. For details, please see http://www.owasp.org/
- *
- * Copyright (c) 2002 - 2019 Bruce Mayhew
- *
- * This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
- * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with this program; if
- * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * Getting Source ==============
- *
- * Source for this application is maintained at https://github.com/WebGoat/WebGoat, a repository for free software projects.
- */
-
 package org.owasp.webgoat.webwolf;
 
 import static java.util.Comparator.comparing;
@@ -29,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -50,7 +30,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
-/** Controller for uploading a file */
 @Controller
 @Slf4j
 public class FileServer {
@@ -84,10 +63,29 @@ public class FileServer {
       @RequestParam("file") MultipartFile myFile, Authentication authentication)
       throws IOException {
     String username = authentication.getName();
-    var destinationDir = new File(fileLocation, username);
-    destinationDir.mkdirs();
-    myFile.transferTo(new File(destinationDir, myFile.getOriginalFilename()));
-    log.debug("File saved to {}", new File(destinationDir, myFile.getOriginalFilename()));
+    Path userDirectory = Paths.get(fileLocation).resolve(username).normalize();
+
+    // Ensure directory exists and is within the safe location
+    if (!userDirectory.startsWith(Paths.get(fileLocation))) {
+      throw new SecurityException("Attempted directory traversal attack");
+    }
+    Files.createDirectories(userDirectory);
+
+    // Sanitize the file name and generate a safe file name
+    String originalFileName = myFile.getOriginalFilename();
+    String safeFileName =
+        Paths.get(originalFileName)
+            .getFileName()
+            .toString(); // This ensures we only get the file name without any path
+    Path destinationFile = userDirectory.resolve(safeFileName);
+
+    // Ensure file is not being saved outside of the intended directory
+    if (!destinationFile.normalize().startsWith(userDirectory)) {
+      throw new SecurityException("Cannot store file outside the current directory.");
+    }
+
+    myFile.transferTo(destinationFile.toFile());
+    log.debug("File saved to {}", destinationFile);
 
     return new ModelAndView(
         new RedirectView("files", true),
@@ -98,20 +96,12 @@ public class FileServer {
   public ModelAndView getFiles(
       HttpServletRequest request, Authentication authentication, TimeZone timezone) {
     String username = (null != authentication) ? authentication.getName() : "anonymous";
-    File destinationDir = new File(fileLocation, username);
+    File userDirectory = new File(fileLocation, username);
 
-    ModelAndView modelAndView = new ModelAndView();
-    modelAndView.setViewName("files");
-    File changeIndicatorFile = new File(destinationDir, username + "_changed");
-    if (changeIndicatorFile.exists()) {
-      modelAndView.addObject("uploadSuccess", request.getParameter("uploadSuccess"));
-    }
-    changeIndicatorFile.delete();
+    ModelAndView modelAndView = new ModelAndView("files");
+    File[] files = userDirectory.listFiles(File::isFile);
+    ArrayList<UploadedFile> uploadedFiles = new ArrayList<>();
 
-    record UploadedFile(String name, String size, String link, String creationTime) {}
-
-    var uploadedFiles = new ArrayList<UploadedFile>();
-    File[] files = destinationDir.listFiles(File::isFile);
     if (files != null) {
       for (File file : files) {
         String size = FileUtils.byteCountToDisplaySize(file.length());
@@ -137,4 +127,6 @@ public class FileServer {
       return "unknown";
     }
   }
+
+  record UploadedFile(String name, String size, String link, String creationTime) {}
 }
