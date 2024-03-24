@@ -38,6 +38,7 @@ import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
 import org.owasp.webgoat.container.session.WebSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,7 +54,9 @@ public class ForgedReviews extends AssignmentEndpoint {
 
   private static final Map<String, List<Review>> userReviews = new HashMap<>();
   private static final List<Review> REVIEWS = new ArrayList<>();
-  private static final String weakAntiCSRF = "2aa14227b9a13d0bede0388a7fba9aa9";
+
+  @Value("${csrf.weak-anti-csrf}")
+  private static String weakAntiCSRF;
 
   static {
     REVIEWS.add(

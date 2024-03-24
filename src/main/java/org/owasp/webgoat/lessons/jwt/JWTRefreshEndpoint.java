@@ -40,6 +40,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -58,8 +59,12 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTRefreshEndpoint extends AssignmentEndpoint {
 
-  public static final String PASSWORD = "${PASSWORD}";
-  private static final String JWT_PASSWORD = "${JWT_PASSWORD}";
+  @Value("${PASSWORD}")
+  public static String PASSWORD;
+
+  @Value("${JWT_PASSWORD}")
+  private static String JWT_PASSWORD;
+
   private static final List<String> validRefreshTokens = new ArrayList<>();
 
   @PostMapping(

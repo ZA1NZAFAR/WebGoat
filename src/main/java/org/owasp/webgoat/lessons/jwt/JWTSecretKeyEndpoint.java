@@ -35,6 +35,7 @@ import java.util.Random;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,9 +47,15 @@ import org.springframework.web.bind.annotation.RestController;
 @AssignmentHints({"jwt-secret-hint1", "jwt-secret-hint2", "jwt-secret-hint3"})
 public class JWTSecretKeyEndpoint extends AssignmentEndpoint {
 
-  public static final String[] SECRETS = {
-    "victory", "business", "available", "shipping", "washington"
-  };
+  @Value("${jwt.secrets}")
+  public static String SECRETS_STRING;
+
+  public static String[] SECRETS;
+
+  static {
+    SECRETS = SECRETS_STRING.split(",");
+  }
+
   public static final String JWT_SECRET =
       TextCodec.BASE64.encode(SECRETS[new Random().nextInt(SECRETS.length)]);
   private static final String WEBGOAT_USER = "WebGoat";

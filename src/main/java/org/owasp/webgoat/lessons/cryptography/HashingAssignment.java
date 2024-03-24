@@ -30,6 +30,7 @@ import javax.xml.bind.DatatypeConverter;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
 import org.owasp.webgoat.container.assignments.AssignmentHints;
 import org.owasp.webgoat.container.assignments.AttackResult;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,7 +42,14 @@ import org.springframework.web.bind.annotation.RestController;
 @AssignmentHints({"crypto-hashing.hints.1", "crypto-hashing.hints.2"})
 public class HashingAssignment extends AssignmentEndpoint {
 
-  public static final String[] SECRETS = {"secret", "admin", "password", "123456", "passw0rd"};
+  @Value("${hashing.secrets}")
+  public static String SECRETS_STRING;
+
+  public static String[] SECRETS;
+
+  static {
+    SECRETS = SECRETS_STRING.split(",");
+  }
 
   @RequestMapping(path = "/crypto/hashing/md5", produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
