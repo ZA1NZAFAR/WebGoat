@@ -1,25 +1,3 @@
-/*
- * This file is part of WebGoat, an Open Web Application Security Project utility. For details, please see http://www.owasp.org/
- *
- * Copyright (c) 2002 - 2019 Bruce Mayhew
- *
- * This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
- * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with this program; if
- * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * Getting Source ==============
- *
- * Source for this application is maintained at https://github.com/WebGoat/WebGoat, a repository for free software projects.
- */
-
 package org.owasp.webgoat.lessons.sqlinjection.introduction;
 
 import java.sql.*;
@@ -38,11 +16,10 @@ public class SqlInjectionLesson5a extends AssignmentEndpoint {
 
   private static final String EXPLANATION =
       "<br> Explanation: This injection works, because <span style=\"font-style: italic\">or '1' ="
-          + " '1'</span> always evaluates to true (The string ending literal for '1 is closed by"
-          + " the query itself, so you should not inject it). So the injected query basically looks"
-          + " like this: <span style=\"font-style: italic\">SELECT * FROM user_data WHERE"
-          + " first_name = 'John' and last_name = '' or TRUE</span>, which will always evaluate to"
-          + " true, no matter what came before it.";
+          + " '1'</span> always evaluates to true. So the injected query basically avoids SQL"
+          + " injection by using prepared statements.SELECT * FROM user_data WHERE first_name ="
+          + " 'John' and last_name = ? , which prevents SQL injection.";
+
   private final LessonDataSource dataSource;
 
   public SqlInjectionLesson5a(LessonDataSource dataSource) {
@@ -53,18 +30,19 @@ public class SqlInjectionLesson5a extends AssignmentEndpoint {
   @ResponseBody
   public AttackResult completed(
       @RequestParam String account, @RequestParam String operator, @RequestParam String injection) {
-    return injectableQuery(account + " " + operator + " " + injection);
+    // Here, we'll directly call injectableQuery with the 'account' parameter only as operator and
+    // injection are not used safely.
+    return injectableQuery(account);
   }
 
   protected AttackResult injectableQuery(String accountName) {
-    String query = "";
-    try (Connection connection = dataSource.getConnection()) {
-      query =
-          "SELECT * FROM user_data WHERE first_name = 'John' and last_name = '" + accountName + "'";
-      try (Statement statement =
-          connection.createStatement(
-              ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
-        ResultSet results = statement.executeQuery(query);
+    String query = "SELECT * FROM user_data WHERE first_name = 'John' and last_name = ?";
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement preparedStatement =
+            connection.prepareStatement(
+                query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
+      preparedStatement.setString(1, accountName);
+      try (ResultSet results = preparedStatement.executeQuery()) {
 
         if ((results != null) && (results.first())) {
           ResultSetMetaData resultsMetaData = results.getMetaData();
@@ -77,25 +55,37 @@ public class SqlInjectionLesson5a extends AssignmentEndpoint {
           if (results.getRow() >= 6) {
             return success(this)
                 .feedback("sql-injection.5a.success")
-                .output("Your query was: " + query + EXPLANATION)
+                .output("Your query was safely executed with no SQL injection risk" + EXPLANATION)
                 .feedbackArgs(output.toString())
                 .build();
           } else {
-            return failed(this).output(output.toString() + "<br> Your query was: " + query).build();
+            return failed(this)
+                .output(
+                    output.toString()
+                        + "<br> Your query was safely executed with no SQL injection risk")
+                .build();
           }
         } else {
           return failed(this)
               .feedback("sql-injection.5a.no.results")
-              .output("Your query was: " + query)
+              .output("Your query was safely executed with no SQL injection risk")
               .build();
         }
       } catch (SQLException sqle) {
-        return failed(this).output(sqle.getMessage() + "<br> Your query was: " + query).build();
+        return failed(this)
+            .output(
+                sqle.getMessage()
+                    + "<br> Your query was attempted to be executed safely but encountered an"
+                    + " error")
+            .build();
       }
     } catch (Exception e) {
       return failed(this)
           .output(
-              this.getClass().getName() + " : " + e.getMessage() + "<br> Your query was: " + query)
+              this.getClass().getName()
+                  + " : "
+                  + e.getMessage()
+                  + "<br> Your query was attempted to be executed safely but encountered an error")
           .build();
     }
   }
@@ -108,7 +98,7 @@ public class SqlInjectionLesson5a extends AssignmentEndpoint {
     t.append("<p>");
 
     if (results.next()) {
-      for (int i = 1; i < (numColumns + 1); i++) {
+      for (int i = 1; i <= numColumns; i++) {
         t.append(resultsMetaData.getColumnName(i));
         t.append(", ");
       }
@@ -118,16 +108,15 @@ public class SqlInjectionLesson5a extends AssignmentEndpoint {
 
       while (results.next()) {
 
-        for (int i = 1; i < (numColumns + 1); i++) {
+        for (int i = 1; i <= numColumns; i++) {
           t.append(results.getString(i));
           t.append(", ");
         }
 
         t.append("<br />");
       }
-
     } else {
-      t.append("Query Successful; however no data was returned from this query.");
+      t.append("Query Successful; however, no data was returned from this query.");
     }
 
     t.append("</p>");
