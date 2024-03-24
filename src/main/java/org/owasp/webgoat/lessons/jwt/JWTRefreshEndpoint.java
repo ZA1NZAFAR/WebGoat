@@ -58,8 +58,8 @@ import org.springframework.web.bind.annotation.RestController;
 })
 public class JWTRefreshEndpoint extends AssignmentEndpoint {
 
-  public static final String PASSWORD = "bm5nhSkxCXZkKRy4";
-  private static final String JWT_PASSWORD = "bm5n3SkxCX4kKRy4";
+  public static final String PASSWORD = "${PASSWORD}";
+  private static final String JWT_PASSWORD = "${JWT_PASSWORD}";
   private static final List<String> validRefreshTokens = new ArrayList<>();
 
   @PostMapping(
