@@ -1,33 +1,3 @@
-/**
- * ************************************************************************************************
- * This file is part of WebGoat, an Open Web Application Security Project utility. For details,
- * please see http://www.owasp.org/
- *
- * <p>Copyright (c) 2002 - 2014 Bruce Mayhew
- *
- * <p>This program is free software; you can redistribute it and/or modify it under the terms of the
- * GNU General Public License as published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * <p>You should have received a copy of the GNU General Public License along with this program; if
- * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- *
- * <p>Getting Source ==============
- *
- * <p>Source for this application is maintained at https://github.com/WebGoat/WebGoat, a repository
- * for free software projects.
- *
- * <p>
- *
- * @author WebGoat
- * @version $Id: $Id
- * @since December 12, 2015
- */
 package org.owasp.webgoat.container;
 
 import java.util.List;
@@ -42,13 +12,13 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-/** Security configuration for WebGoat. */
 @Configuration
 @AllArgsConstructor
 @EnableWebSecurity
@@ -88,8 +58,10 @@ public class WebSecurityConfig {
             })
         .logout(logout -> logout.deleteCookies("JSESSIONID").invalidateHttpSession(true))
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .csrf(csrf -> csrf.disable())
-        .headers(headers -> headers.disable())
+        // Re-enabled CSRF protection
+        .csrf()
+        .and()
+        .headers(headers -> headers.frameOptions().sameOrigin()) // Enable if using frames
         .exceptionHandling(
             handling ->
                 handling.authenticationEntryPoint(new AjaxAuthenticationEntryPoint("/login")))
@@ -99,8 +71,8 @@ public class WebSecurityConfig {
   private CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.addAllowedOriginPattern(CorsConfiguration.ALL);
-    configuration.setAllowedMethods(List.of(CorsConfiguration.ALL));
-    configuration.setAllowedHeaders(List.of(CorsConfiguration.ALL));
+    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
     configuration.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
@@ -109,7 +81,7 @@ public class WebSecurityConfig {
 
   @Autowired
   public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
-    auth.userDetailsService(userDetailsService);
+    auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
   }
 
   @Bean
@@ -124,7 +96,7 @@ public class WebSecurityConfig {
   }
 
   @Bean
-  public NoOpPasswordEncoder passwordEncoder() {
-    return (NoOpPasswordEncoder) NoOpPasswordEncoder.getInstance();
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
   }
 }
