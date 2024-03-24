@@ -36,7 +36,7 @@ public class ProfileUpload extends ProfileUploadBase {
   public AttackResult uploadFileHandler(
       @RequestParam("uploadedFile") MultipartFile file,
       @RequestParam(value = "fullName", required = false) String fullName) {
-    return super.execute(file, fullName);
+    return super.execute(file, fullName != null ? fullName.replace("../", "") : "");
   }
 
   @GetMapping("/PathTraversal/profile-picture")
